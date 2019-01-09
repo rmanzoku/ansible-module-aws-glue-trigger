@@ -18,11 +18,19 @@ except ImportError:
     pass
 
 
+def create_or_update_glue_trigger(client, module):
+    changed = False
+    return changed
+
+def delete_glue_trigger(client, module):
+    changed = False
+    return changed
+
 def main():
 
     argument_spec = (
         dict(
-            state=dict(require=False, type='str', default="present",
+            state=dict(require=False, type='str', default='present',
                        choices=['present', 'absent']),
             name=dict(required=True, type='str'),
         )
@@ -34,12 +42,16 @@ def main():
                             # ]
     )
 
-    connection = module.client('glue')
-    state = module.params.get("state")
+    client = module.client('glue')
+    params = module.params
 
-    trigger = connection.get_trigger(Name=module.params.get("name"))
+    if params.get('state') == 'present':
+        changed = create_or_update_glue_trigger(client, params)
+    else:
+        changed = delete_glue_trigger(client, params)
 
-    print(trigger)
+    module.exit_json(changed=changed)
+
 
 if __name__ == '__main__':
     main()
