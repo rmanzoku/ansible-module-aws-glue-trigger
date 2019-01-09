@@ -6,3 +6,6 @@
       aws_glue_trigger:
         state: present
         name: test
+        trigger_type: ON_DEMAND
+        actions:
+          - name: aaa
