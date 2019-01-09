@@ -30,11 +30,28 @@ def _get_glue_trigger(client, name):
             raise e
 
 
-def create_or_update_glue_trigger(client, params):
+def create_or_update_glue_trigger(client, params, module):
 
     user_params = dict()
+    user_params['Name'] = params.get('name')
+    user_params['Type'] = params.get('trigger_type')
+
+    if user_params['Type'] == "SCHEDULED":
+        user_params['Schedule'] = params.get('schedule')
+
+    actions = [
+        {'JobName': action.get('job_name')}
+        for action in params.get('actions')
+    ]
+
+    user_params['Actions'] = actions
+
     if _get_glue_trigger(client, params.get('name')) is None:
         # Create
+        try:
+            client.create_trigger(**user_params)
+        except (BotoCoreError, ClientError) as e:
+            raise e
         return True
 
     current_params = dict()
@@ -45,9 +62,16 @@ def create_or_update_glue_trigger(client, params):
     return True
 
 
-def delete_glue_trigger(client, params):
-    changed = False
-    return changed
+def delete_glue_trigger(client, params, module):
+
+    if _get_glue_trigger(client, params.get('name')):
+        try:
+            client.delete_trigger(Name=params.get('name'))
+            return True
+        except (BotoCoreError, ClientError) as e:
+            module.fail_json_aws(e)
+
+    return False
 
 
 def main():
@@ -57,16 +81,17 @@ def main():
             state=dict(require=False, type='str', default='present',
                        choices=['present', 'absent']),
             name=dict(required=True, type='str'),
-            trigger_type=dict(required=True, type='str',
+            trigger_type=dict(required=False, type='str',
                               choice=['SCHEDULED', 'CONDITIONAL', 'ON_DEMAND']),
             schedule=dict(required=False, type='str'),
-            actions=dict(required=True, type='list'),
+            actions=dict(required=False, type='list'),
         )
     )
 
     module = AnsibleAWSModule(
         argument_spec=argument_spec,
         required_if=[
+            ('state', 'present', ['trigger_type', 'trigger_type', 'actions']),
             ('trigger_type', 'SCHEDULED', ['schedule'])
         ]
     )
@@ -75,9 +100,9 @@ def main():
     params = module.params
 
     if params.get('state') == 'present':
-        changed = create_or_update_glue_trigger(client, params)
+        changed = create_or_update_glue_trigger(client, params, module)
     else:
-        changed = delete_glue_trigger(client, params)
+        changed = delete_glue_trigger(client, params, module)
 
     module.exit_json(changed=changed)
 

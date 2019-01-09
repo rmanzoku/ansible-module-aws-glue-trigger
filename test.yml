@@ -2,10 +2,16 @@
   gather_facts: no
   connection: local
   tasks:
+    - name: Delete
+      aws_glue_trigger:
+        state: absent
+        name: gum
+
     - name: Create
       aws_glue_trigger:
         state: present
-        name: test
-        trigger_type: ON_DEMAND
+        name: mch-prod-mch_core-gum
+        trigger_type: SCHEDULED
+        schedule: "cron(45 6 * * ? *)"
         actions:
-          - name: aaa
+          - job_name: mch-prod-mch_core-gum
