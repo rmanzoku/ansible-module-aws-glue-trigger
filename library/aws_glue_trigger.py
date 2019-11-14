@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# encoding: utf-8
 
 # Copyright: (c) 2018, Ryo Manzoku (@rmanzoku)
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -7,13 +8,42 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
                     'supported_by': 'community'}
 
+DOCUMENTATION = """
+---
+module: aws_glue_trigger
+short_description: Created glue trigger
+description:
+  - It depends on boto3
+
+requirements:
+  - "python >= 3"
+  - boto3
+"""
+
+EXAMPLES = '''
+- name: Delete
+  aws_glue_trigger:
+    state: absent
+    name: gum
+
+- name: Create
+  aws_glue_trigger:
+    state: present
+    name: mch-prod-mch_core-gum
+    trigger_type: SCHEDULED
+    schedule: "cron(45 6 * * ? *)"
+    actions:
+      - job_name: mch-prod-mch_core-gum
+'''
+
 from ansible.module_utils.aws.core import AnsibleAWSModule
-from ansible.module_utils.ec2 import camel_dict_to_snake_dict
+
 
 try:
     from botocore.exceptions import BotoCoreError, ClientError
+    HAS_BOTO = True
 except ImportError:
-    pass
+    HAS_BOTO = False
 
 
 def _is_params_equal(user_params, current_params):
@@ -53,13 +83,16 @@ def create_or_update_glue_trigger(client, params, module):
         except (BotoCoreError, ClientError) as e:
             raise e
         return True
-
-    current_params = dict()
-    if _is_params_equal(user_params, current_params):
-        return False
-
-    # Update
-    return True
+    else:
+        try:
+            del user_params['Type']
+            client.update_trigger(
+                Name=params.get('name'),
+                TriggerUpdate=user_params
+            )
+        except (BotoCoreError, ClientError) as e:
+            raise e
+        return True
 
 
 def delete_glue_trigger(client, params, module):
@@ -95,6 +128,9 @@ def main():
             ('trigger_type', 'SCHEDULED', ['schedule'])
         ]
     )
+
+    if not HAS_BOTO:
+        module.fail_json(msg='boto3 required for this module, install via pip or your package manager')
 
     client = module.client('glue')
     params = module.params
